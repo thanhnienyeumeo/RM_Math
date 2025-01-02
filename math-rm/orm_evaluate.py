@@ -38,6 +38,7 @@ def select_sample(args,sample,model,tokenizer,candidate_tokens,local_rank):
     prompt = sample['prompt']
     scores_list = []
     answers = sample['answers'][:args.num_n]
+    print(len(answers))
     step_scores = []
     for ans in answers:
         single_step_score = []
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     world_size = int(os.getenv("WORLD_SIZE", "1"))
     #print(world_size)
     ds = load_dataset(args.dataset,split="train")
-    ds = ds.select(range(2))
+    
     local_rank = Accelerator().local_process_index
     print("---------------")
     print("begin to load reward model.")
@@ -121,34 +122,30 @@ if __name__ == "__main__":
         "data": [[selected_data_label[i]] for i in range(len(selected_data_label))],
         "new_data": [[new_data[i]] for i in range(len(new_data))]
     }
-    print(all_process_list)
-    print('----')
-    print(data_to_send['new_data'][0][0].keys())
+    # print(all_process_list)
+    # print('----')
+    # print(data_to_send['new_data'][0][0].keys())
     # print(data_to_send["data"][1][0])
     
     label = 'label'
     # import torch.distributed as dist
     # dist.init_process_group(backend="nccl")
     # dist.all_gather_object(all_process_list, data_to_send)
-    gathered_data = []
-    gathered_save_data = []
+    # gathered_data = []
+    # gathered_save_data = []
 
-    for i in range(world_size):
-        tmp_data = [tmp[0] for tmp in data_to_send[i]["data"]]
-        gathered_data.extend(tmp_data)
+    # for i in range(world_size):
+    #     tmp_data = [tmp[0] for tmp in data_to_send[i]["data"]]
+    #     gathered_data.extend(tmp_data)
         
-        tmp_save_data = [tmp[0] for tmp in data_to_send[i]["new_data"]]
-        gathered_save_data.extend(tmp_save_data)
+    #     tmp_save_data = [tmp[0] for tmp in data_to_send[i]["new_data"]]
+    #     gathered_save_data.extend(tmp_save_data)
+    data_to_send['data'] = [i[0] for i in data_to_send['data']]
     
     if local_rank == 0:
-        print(f"acc: {sum(gathered_data)/len(gathered_data)}")
-        acc = {"accuracy":sum(gathered_data)/len(gathered_data)}
+        print(f"acc: {sum(data_to_send['data'])/len(data_to_send['data'])}")
+        acc = {"accuracy":sum(data_to_send['data'])/len(data_to_send['data'])}
     
-        with open(f"{args.output_dir}_{args.num_n}.json",'w') as f:
-            json.dump(acc,f,indent=4,ensure_ascii=False)
-            
-        with open(f"{args.output_dir}_{args.num_n}_save_data.jsonl",'w') as f: # We also save a copy of the step score.
-            for entry in gathered_save_data:
-                f.write(json.dumps(entry) + "\n")
+    
         
 
