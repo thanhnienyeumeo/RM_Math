@@ -15,13 +15,14 @@ import re
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--reward_name_or_path", type=str, default='pwork7/llama31_it_prm_2e6_bz32_1epoch_conversation')  # model path
+    parser.add_argument("--tokenizer_path", type =str, default = 'Qwen/Qwen2.5-1.5B-Instruct')
     parser.add_argument("--dataset", type=str, default='RLHFlow/Mistral-MATH500-Test')  # data path
     parser.add_argument("--output_dir", type=str, default="math_best_of_n")  # output dir
     parser.add_argument("--num_n", type=int, default=1024)  # number of N for each question
     parser.add_argument("--model_type",type=str,choices=["Mistral","Deepseek"],default='Mistral')
     return parser.parse_args()
 
-def batch_data(data_list, batch_size=8):
+def batch_data(data_list, batch_size=1):
     n = batch_size
     batch_data = []
     for i in range(n-1):
@@ -81,6 +82,7 @@ if __name__ == "__main__":
     world_size = int(os.getenv("WORLD_SIZE", "1"))
     #print(world_size)
     ds = load_dataset(args.dataset,split="train")
+    ds = ds.select(range(2))
     local_rank = Accelerator().local_process_index
     print("---------------")
     print("begin to load reward model.")
@@ -88,7 +90,7 @@ if __name__ == "__main__":
     downloaded = False
     while not downloaded:
         try:
-            tokenizer = AutoTokenizer.from_pretrained(args.reward_name_or_path)
+            tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
             model = AutoModelForCausalLM.from_pretrained(args.reward_name_or_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
             downloaded = True
         except Exception as error:
@@ -119,18 +121,23 @@ if __name__ == "__main__":
         "data": [[selected_data_label[i]] for i in range(len(selected_data_label))],
         "new_data": [[new_data[i]] for i in range(len(new_data))]
     }
-
-    import torch.distributed as dist
-
-    dist.all_gather_object(all_process_list, data_to_send)
+    print(all_process_list)
+    print('----')
+    print(data_to_send['new_data'][0][0].keys())
+    # print(data_to_send["data"][1][0])
+    
+    label = 'label'
+    # import torch.distributed as dist
+    # dist.init_process_group(backend="nccl")
+    # dist.all_gather_object(all_process_list, data_to_send)
     gathered_data = []
     gathered_save_data = []
 
     for i in range(world_size):
-        tmp_data = [tmp[0] for tmp in all_process_list[i]["data"]]
+        tmp_data = [tmp[0] for tmp in data_to_send[i]["data"]]
         gathered_data.extend(tmp_data)
         
-        tmp_save_data = [tmp[0] for tmp in all_process_list[i]["new_data"]]
+        tmp_save_data = [tmp[0] for tmp in data_to_send[i]["new_data"]]
         gathered_save_data.extend(tmp_save_data)
     
     if local_rank == 0:

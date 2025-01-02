@@ -32,14 +32,14 @@ class ScriptArguments:
             "help": "Path to deepspeed config if using deepspeed. You may need this if the model that you want to train doesn't fit on a single GPU."
         },
     )
-    per_device_train_batch_size: Optional[int] = field(default=8)
-    per_device_eval_batch_size: Optional[int] = field(default=4)
+    per_device_train_batch_size: Optional[int] = field(default=1)
+    per_device_eval_batch_size: Optional[int] = field(default=1)
     # for 8 GPU, the global batch size is 512
     gradient_accumulation_steps: Optional[int] = field(default=2)
-    learning_rate: Optional[float] = field(default=1e-6)
+    learning_rate: Optional[float] = field(default=2e-5)
     weight_decay: Optional[float] = field(default=0.001)
     model_name: Optional[str] = field(
-        default="meta-llama/Llama-3.1-8B-Instruct",
+        default="Qwen/Qwen2.5-1.5B-Instruct",
         metadata={
             "help": "The model that you want to train from the Hugging Face hub. E.g. gpt2, gpt2-xl, bert, etc."
         },
@@ -59,7 +59,7 @@ class ScriptArguments:
         metadata={"help": "The dir of the subset of the training data to use"},
     )
     output_path: Optional[str] = field(
-        default="./models/llama3_orm",
+        default="./model/qwen1.5b_orm",
         metadata={"help": "The dir for output model"},
     )
     gradient_checkpointing: Optional[bool] = field(
@@ -79,11 +79,11 @@ class ScriptArguments:
     max_length: Optional[int] = field(default=4096)
 
     save_every_steps: Optional[int] = field(
-        default=999999,
+        default=2000,
         metadata={"help": "Save the model every x steps"},
     )
     eval_every_steps: Optional[int] = field(
-        default=50,
+        default=2000,
         metadata={"help": "Eval the model every x steps"},
     )
 
@@ -109,11 +109,11 @@ tokenizer.model_max_length = script_args.max_length
 
 # Get the dataset
 train_path = script_args.train_set_path
-eval_path = script_args.eval_set_path
+# eval_path = script_args.eval_set_path
 output_name = script_args.output_path
 
 
-def build_dataset(tokenizer, train_path, eval_path):
+def build_dataset(tokenizer, train_path, eval_path = None):
 
     def tokenize(sample):
         question = sample['conversations'][0]['content'].split("Step 1")[0]
@@ -123,7 +123,8 @@ def build_dataset(tokenizer, train_path, eval_path):
             {"role":"assistant", "content":ans}
         ]
         sample['positive'] = tokenizer.apply_chat_template(
-            message, tokenize=False, add_generation_prompt=False).replace(tokenizer.bos_token, "")
+            # message, tokenize=False, add_generation_prompt=False).replace(tokenizer.bos_token, "")
+            message, tokenize=False, add_generation_prompt=False)
         tokenized_pos = tokenizer(sample['positive'], truncation=True)
         sample["input_ids_j"] = tokenized_pos["input_ids"]
         sample["attention_mask_j"] = tokenized_pos["attention_mask"]
@@ -147,7 +148,7 @@ def build_dataset(tokenizer, train_path, eval_path):
     return train_dataset, eval_dataset
 
 
-train_dataset, eval_dataset = build_dataset(tokenizer, train_path, eval_path)
+train_dataset, eval_dataset = build_dataset(tokenizer, train_path, eval_path = None)
 print("Training set: ", len(train_dataset), " Eval set: ", len(eval_dataset))
 
 # Define the trainer
@@ -173,7 +174,7 @@ training_args = TrainingArguments(
     label_names=[],
     bf16=script_args.bf16,
     logging_strategy="steps",
-    logging_steps=1,
+    logging_steps=100,
     optim=script_args.optim,
     lr_scheduler_type=script_args.lr_scheduler_type,
     warmup_ratio=0.03,
@@ -240,7 +241,7 @@ class RewardDataCollatorWithPadding:
 
 
 class RewardTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, num_items_in_batch = None, return_outputs=False):
         outputs = model(
             input_ids=inputs["input_ids"], attention_mask=inputs["attention_mask"]
         )
