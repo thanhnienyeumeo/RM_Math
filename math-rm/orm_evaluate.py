@@ -14,7 +14,7 @@ import re
      
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--reward_name_or_path", type=str, default='pwork7/llama31_it_prm_2e6_bz32_1epoch_conversation')  # model path
+    parser.add_argument("--model_path", type=str, default='pwork7/llama31_it_prm_2e6_bz32_1epoch_conversation')  # model path
     parser.add_argument("--tokenizer_path", type =str, default = 'Qwen/Qwen2.5-1.5B-Instruct')
     parser.add_argument("--dataset", type=str, default='RLHFlow/Mistral-MATH500-Test')  # data path
     parser.add_argument("--output_dir", type=str, default="math_best_of_n")  # output dir
@@ -50,7 +50,9 @@ def select_sample(args,sample,model,tokenizer,candidate_tokens,local_rank):
         else:
             conversation.append({"content":prompt + " " + ans,"role":"user"})
         conversation.append({"content":"+","role":"assistant"})
-         
+        senten = tokenizer.apply_chat_template(conversation,return_tensors="pt", tokenize = False)
+
+        # print(senten)
         input_ids = tokenizer.apply_chat_template(conversation,return_tensors="pt").to(local_rank)
         with torch.no_grad():
             logits = model(input_ids).logits[:,-3,candidate_tokens] #simple version for llama3.1-instruct, the +/- is predicted by the '-3' position
@@ -92,8 +94,8 @@ if __name__ == "__main__":
     while not downloaded:
         try:
             tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-            # model = AutoModelForCausalLM.from_pretrained(args.reward_name_or_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
-            model = AutoModelForSequenceClassification.from_pretrained(args.reward_name_or_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
+            model = AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
+            # model = AutoModelForSequenceClassification.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
             downloaded = True
         except Exception as error:
             print("An error occurred:", error)
