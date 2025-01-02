@@ -1,5 +1,5 @@
 from transformers import AutoTokenizer
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification
 from datasets import load_dataset
 from accelerate import Accelerator
 import numpy as np
@@ -38,7 +38,7 @@ def select_sample(args,sample,model,tokenizer,candidate_tokens,local_rank):
     prompt = sample['prompt']
     scores_list = []
     answers = sample['answers'][:args.num_n]
-    print(len(answers))
+    
     step_scores = []
     for ans in answers:
         single_step_score = []
@@ -92,7 +92,8 @@ if __name__ == "__main__":
     while not downloaded:
         try:
             tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-            model = AutoModelForCausalLM.from_pretrained(args.reward_name_or_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
+            # model = AutoModelForCausalLM.from_pretrained(args.reward_name_or_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
+            model = AutoModelForSequenceClassification.from_pretrained(args.reward_name_or_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
             downloaded = True
         except Exception as error:
             print("An error occurred:", error)

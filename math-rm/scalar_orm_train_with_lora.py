@@ -100,6 +100,14 @@ class ScriptArguments:
         metadata={"help": "Use attention in the model."},
     )
 
+    num_samples: Optional[int] = field(
+        default=None,
+        metadata={"help": "Number of samples to use for training."},
+    )
+    report_to: Optional[str] = field(
+        default='wandb',
+        metadata={"help": "The logger to use."},
+    )
 
 parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
@@ -150,14 +158,17 @@ def build_dataset(tokenizer, train_path, eval_path = None):
         return sample
 
     ds = load_dataset(train_path, split="train").shuffle(seed=42)
-    #ds = ds.select(range(2000))
+    if script_args.num_samples is not None:
+        ds = ds.select(range(script_args.num_samples))
     ds = ds.map(tokenize, num_proc=8)
 
     eval_dataset = None
 
-    train_dataset = ds
+    ds = ds.train_test_split(test_size=0.005)
+    train_dataset = ds['train']
+    eval_dataset = ds['test']
     #eval_dataset = load_dataset(eval_path, split="train").shuffle(seed=42).select(range(500))
-    eval_dataset = ds.select(range(500))
+
     return train_dataset, eval_dataset
 
 
@@ -191,7 +202,7 @@ training_args = TrainingArguments(
     optim=script_args.optim,
     lr_scheduler_type=script_args.lr_scheduler_type,
     warmup_ratio=0.03,
-    report_to='wandb',
+    report_to= script_args.report_to,
     save_only_model = True
 )
 
