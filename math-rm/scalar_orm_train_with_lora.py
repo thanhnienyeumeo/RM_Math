@@ -328,6 +328,11 @@ class ScriptArguments:
         metadata={"help": "Eval the model every x steps"},
     )
 
+    use_attention: Optional[bool] = field(
+        default=True,
+        metadata={"help": "Use attention in the model."},
+    )
+
 
 parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
@@ -488,7 +493,7 @@ lora_config = LoraConfig(
 )
 # Wrap the model with LoRA
 model = AutoModelForSequenceClassification.from_pretrained(
-    script_args.model_name, num_labels=1, torch_dtype=torch.bfloat16, use_flash_attention_2=True,
+    script_args.model_name, num_labels=1, torch_dtype=torch.bfloat16, use_flash_attention_2=script_args.use_attention,
 )
 
 model.config.use_cache = not script_args.gradient_checkpointing
