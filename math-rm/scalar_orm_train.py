@@ -87,6 +87,19 @@ class ScriptArguments:
         metadata={"help": "Eval the model every x steps"},
     )
 
+    use_attention: Optional[bool] = field(
+        default=True,
+        metadata={"help": "Use attention in the model."},
+    )
+
+    num_samples: Optional[int] = field(
+        default=None,
+        metadata={"help": "Number of samples to use for training."},
+    )
+    report_to: Optional[str] = field(
+        default='wandb',
+        metadata={"help": "The logger to use."},
+    )
 
 parser = HfArgumentParser(ScriptArguments)
 script_args = parser.parse_args_into_dataclasses()[0]
@@ -179,11 +192,16 @@ training_args = TrainingArguments(
     lr_scheduler_type=script_args.lr_scheduler_type,
     warmup_ratio=0.03,
     report_to='wandb',
-    save_only_model = True
+    save_only_model = True,
+    
 )
 
 model = AutoModelForSequenceClassification.from_pretrained(
-    script_args.model_name, num_labels=1, torch_dtype=torch.bfloat16, use_flash_attention_2=True,
+    script_args.model_name, 
+    num_labels=1, 
+    torch_dtype=torch.bfloat16 if script_args.bf16 else torch.float32,
+    use_flash_attention_2=script_args.use_attention, 
+    device_map = {'': torch.cuda.current_device()}
 )
 
 model.config.use_cache = not script_args.gradient_checkpointing

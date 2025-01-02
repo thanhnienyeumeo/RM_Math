@@ -44,7 +44,7 @@ class ScriptArguments:
     per_device_eval_batch_size: Optional[int] = field(default=1)
     # for 8 GPU, the global batch size is 512
     gradient_accumulation_steps: Optional[int] = field(default=2)
-    learning_rate: Optional[float] = field(default=2e-5)
+    learning_rate: Optional[float] = field(default=2e-4)
     weight_decay: Optional[float] = field(default=0.001)
     model_name: Optional[str] = field(
         default="Qwen/Qwen2.5-1.5B-Instruct",
@@ -87,11 +87,11 @@ class ScriptArguments:
     max_length: Optional[int] = field(default=4096)
 
     save_every_steps: Optional[int] = field(
-        default=2000,
+        default=5000,
         metadata={"help": "Save the model every x steps"},
     )
     eval_every_steps: Optional[int] = field(
-        default=2000,
+        default=5000,
         metadata={"help": "Eval the model every x steps"},
     )
 
@@ -107,6 +107,10 @@ class ScriptArguments:
     report_to: Optional[str] = field(
         default='wandb',
         metadata={"help": "The logger to use."},
+    )
+    rankLora: Optional[int] = field(
+        default=8,
+        metadata={"help": "The rank of LoRA."},
     )
 
 parser = HfArgumentParser(ScriptArguments)
@@ -146,7 +150,7 @@ def build_dataset(tokenizer, train_path, eval_path = None):
         sample['positive'] = tokenizer.apply_chat_template(
             # message, tokenize=False, add_generation_prompt=False).replace(tokenizer.bos_token, "")
             message, tokenize=False, add_generation_prompt=False)
-        tokenized_pos = tokenizer(sample['positive'], truncation=True)
+        tokenized_pos = tokenizer(sample['positive'], truncation=False)
         sample["input_ids_j"] = tokenized_pos["input_ids"]
         sample["attention_mask_j"] = tokenized_pos["attention_mask"]
         if sample['conversations'][1]['content'] == '+':
@@ -160,7 +164,7 @@ def build_dataset(tokenizer, train_path, eval_path = None):
     ds = load_dataset(train_path, split="train").shuffle(seed=42)
     if script_args.num_samples is not None:
         ds = ds.select(range(script_args.num_samples))
-    ds = ds.map(tokenize, num_proc=8)
+    ds = ds.map(tokenize, num_proc=1)
 
     eval_dataset = None
 
@@ -183,11 +187,11 @@ training_args = TrainingArguments(
     output_dir=output_name,
     learning_rate=script_args.learning_rate,
     per_device_train_batch_size=script_args.per_device_train_batch_size,
-    per_device_eval_batch_size=script_args.per_device_eval_batch_size,
+    # per_device_eval_batch_size=script_args.per_device_eval_batch_size,
     num_train_epochs=script_args.num_train_epochs,
     weight_decay=script_args.weight_decay,
-    evaluation_strategy="steps",
-    eval_steps=script_args.eval_every_steps,
+    # evaluation_strategy="steps",
+    # eval_steps=script_args.eval_every_steps,
     save_strategy="steps",
     save_steps=script_args.save_every_steps,
     gradient_accumulation_steps=script_args.gradient_accumulation_steps,
@@ -203,7 +207,8 @@ training_args = TrainingArguments(
     lr_scheduler_type=script_args.lr_scheduler_type,
     warmup_ratio=0.03,
     report_to= script_args.report_to,
-    save_only_model = True
+    save_only_model = True,
+    push_to_hub=True,
 )
 
 
@@ -262,7 +267,7 @@ from peft import LoraConfig, get_peft_model
 
 # Define LoRA parameters
 lora_config = LoraConfig(
-    r=8,  # LoRA rank
+    r= script_args.rankLora,  # Rank of LoRA
     lora_alpha=16,  # Scaling factor
     target_modules="all-linear",  # Modules to target
     lora_dropout=0.1,  # Dropout rate
@@ -271,7 +276,7 @@ lora_config = LoraConfig(
 )
 # Wrap the model with LoRA
 model = AutoModelForSequenceClassification.from_pretrained(
-    script_args.model_name, num_labels=1, torch_dtype=torch.bfloat16, use_flash_attention_2=script_args.use_attention,
+    script_args.model_name, num_labels=1, torch_dtype=torch.bfloat16, use_flash_attention_2=script_args.use_attention, device_map = {'': torch.cuda.current_device()}
 )
 
 model.config.use_cache = not script_args.gradient_checkpointing
@@ -307,7 +312,7 @@ trainer = RewardTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
-    eval_dataset=eval_dataset,
+    # eval_dataset=eval_dataset,
     #compute_metrics=compute_metrics,
     data_collator=RewardDataCollatorWithPadding(
         tokenizer=tokenizer, max_length=script_args.max_length),
