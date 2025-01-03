@@ -23,6 +23,7 @@ def parse_args():
     parser.add_argument("--num_n", type=int, default=1024)  # number of N for each question
     parser.add_argument("--model_type",type=str,choices=["Mistral","Deepseek"],default='Mistral')
     parser.add_argument("--peft",type = bool, default = False)
+    parser.add_argument("--num_samples", type=int, default=None)
     args = parser.parse_args()
     return args 
 def batch_data(data_list, batch_size=1):
@@ -88,7 +89,8 @@ if __name__ == "__main__":
     world_size = int(os.getenv("WORLD_SIZE", "1"))
     #print(world_size)
     ds = load_dataset(args.dataset,split="train")
-    
+    if args.num_samples is not None:
+        ds = ds.select(range(args.num_samples))
     local_rank = Accelerator().local_process_index
     print("---------------")
     print("begin to load reward model.")
