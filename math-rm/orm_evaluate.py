@@ -22,8 +22,9 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, default="math_best_of_n")  # output dir
     parser.add_argument("--num_n", type=int, default=1024)  # number of N for each question
     parser.add_argument("--model_type",type=str,choices=["Mistral","Deepseek"],default='Mistral')
-    parser.add_argument("--peft",type=str,type = bool, default = False)
-
+    parser.add_argument("--peft",type = bool, default = False)
+    args = parser.parse_args()
+    return args 
 def batch_data(data_list, batch_size=1):
     n = batch_size
     batch_data = []
@@ -96,16 +97,21 @@ if __name__ == "__main__":
     cnt = 0
     while not downloaded:
         try:
+            tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+            tokenizer.add_special_tokens({'pad_token': '[PAD]'})
             if args.peft:
-
-                base_model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3.5-mini-instruct")
+                
+                base_model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3.5-mini-instruct", torch_dtype=torch.bfloat16, device_map = torch.cuda.current_device()).to(local_rank).eval()
+                base_model.config.pad_token_id = tokenizer.pad_token_id
+                base_model.config.use_cache = False
+                base_model.resize_token_embeddings(len(tokenizer))
                 model = PeftModel.from_pretrained(base_model, "Colder203/phi_orm_3.8b_8ksamples")
             else:
                 
                 model = AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
             # model = AutoModelForSequenceClassification.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
             
-            tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+            
             downloaded = True
         except Exception as error:
             print("An error occurred:", error)
