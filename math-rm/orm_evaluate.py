@@ -11,7 +11,9 @@ import time
 import os
 import sys
 import re
-     
+from peft import PeftModel
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, default='pwork7/llama31_it_prm_2e6_bz32_1epoch_conversation')  # model path
@@ -20,7 +22,7 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, default="math_best_of_n")  # output dir
     parser.add_argument("--num_n", type=int, default=1024)  # number of N for each question
     parser.add_argument("--model_type",type=str,choices=["Mistral","Deepseek"],default='Mistral')
-    return parser.parse_args()
+    parser.add_argument("--peft",type=str,type = bool, default = False)
 
 def batch_data(data_list, batch_size=1):
     n = batch_size
@@ -91,16 +93,28 @@ if __name__ == "__main__":
     print("begin to load reward model.")
     print("---------------")
     downloaded = False
+    cnt = 0
     while not downloaded:
         try:
-            tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-            model = AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
+            if args.peft:
+
+                base_model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3.5-mini-instruct")
+                model = PeftModel.from_pretrained(base_model, "Colder203/phi_orm_3.8b_8ksamples")
+            else:
+                
+                model = AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
             # model = AutoModelForSequenceClassification.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
+            
+            tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
             downloaded = True
         except Exception as error:
             print("An error occurred:", error)
             print("Failed to load the reward model. Retrying....")
             time.sleep(2)
+            cnt+=1
+            if cnt > 5:
+                print("Failed to load the reward model. Please check the model path and try again.")
+                sys.exit(1)
 
     tokenizer.padding_side = "right"
     tokenizer.pad_token = tokenizer.eos_token

@@ -192,7 +192,7 @@ training_args = TrainingArguments(
     lr_scheduler_type=script_args.lr_scheduler_type,
     warmup_ratio=0.03,
     report_to='wandb',
-    save_only_model = True,
+    
     
 )
 

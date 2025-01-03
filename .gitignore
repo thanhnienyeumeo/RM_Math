@@ -172,3 +172,4 @@ bt_models/gemma2b_rm/
 transfer_dataset.py
 transfer_models.py
 upload.py
+credential.py
