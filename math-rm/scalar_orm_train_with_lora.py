@@ -327,27 +327,3 @@ print("Saving last checkpoint of the model")
 #model.save_pretrained(output_name + "/last_checkpoint")
 trainer.save_model(output_name + "/last_checkpoint")
 tokenizer.save_pretrained(output_name + "/last_checkpoint")
-
-
-
-
-
-# Train the model, woohoo.
-trainer = RewardTrainer(
-    model=model,
-    args=training_args,
-    train_dataset=train_dataset,
-    eval_dataset=eval_dataset,
-    #compute_metrics=compute_metrics,
-    data_collator=RewardDataCollatorWithPadding(
-        tokenizer=tokenizer, max_length=script_args.max_length),
-)
-
-
-trainer.train()
-
-
-print("Saving last checkpoint of the model")
-#model.save_pretrained(output_name + "/last_checkpoint")
-trainer.save_model(output_name + "/last_checkpoint")
-tokenizer.save_pretrained(output_name + "/last_checkpoint")
