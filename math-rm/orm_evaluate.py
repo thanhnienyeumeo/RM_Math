@@ -68,6 +68,40 @@ def select_sample(args,sample,model,tokenizer,candidate_tokens,local_rank):
     sample['step_scores'] = [x.item() for x in scores_list]  # Add the step_score attribute to each sample
     return sample['label'][idx] == 1,sample
 
+def select_sample2(args,sample,model,tokenizer,candidate_tokens,local_rank):
+    prompt = sample['prompt']
+    question = prompt
+    scores_list = []
+    answers = sample['answers'][:args.num_n]
+    
+    step_scores = []
+    for ans in answers:
+        single_step_score = []
+        conversation = []
+        forward_conv = []
+        message = [
+                {"role":"user", "content":question},
+                {"role":"assistant", "content":ans}
+            ]
+        
+        senten =tokenizer.apply_chat_template(
+                # message, tokenize=False, add_generation_prompt=False).replace(tokenizer.bos_token, "")
+                message, add_generation_prompt=False)
+        # tokenized_pos = tokenizer(senten['positive'], truncation=False)
+
+        # print(senten)
+        input_ids = tokenizer.apply_chat_template(message,return_tensors="pt").to(local_rank)
+        with torch.no_grad():
+            logits = model(input_ids).logits[:,-3,candidate_tokens] #simple version for llama3.1-instruct, the +/- is predicted by the '-3' position
+            scores = logits.softmax(dim=-1)[:,0] # 0 means the prob of + (1 mean -)
+
+        scores_list.append(scores[0].detach().to('cpu', dtype=torch.float32))
+        
+    idx = scores_list.index(max(scores_list))
+    sample['step_scores'] = [x.item() for x in scores_list]  # Add the step_score attribute to each sample
+    return sample['label'][idx] == 1,sample
+
+
 def worker(args, model, tokenizer, data, local_rank):
 
     temp_instances = []
