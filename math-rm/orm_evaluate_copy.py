@@ -18,7 +18,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, default='pwork7/llama31_it_prm_2e6_bz32_1epoch_conversation')  # model path
     parser.add_argument("--tokenizer_path", type =str, default = 'Qwen/Qwen2.5-1.5B-Instruct')
-    parser.add_argument("--dataset", type=str, default='RLHFlow/Mistral-MATH500-Test')  # data path
+    parser.add_argument("--dataset", type=str, default='Colder203/math_test')  # data path
     parser.add_argument("--output_dir", type=str, default="math_best_of_n")  # output dir
     parser.add_argument("--num_n", type=int, default=1024)  # number of N for each question
     parser.add_argument("--model_type",type=str,choices=["Mistral","Deepseek"],default='Mistral')
@@ -123,8 +123,8 @@ def worker(args, model, tokenizer, data, local_rank):
         sign,new_sample = select_sample2(args,sample,model,tokenizer,candidate_tokens,local_rank)
         data[i] = new_sample
         temp_instances.append(sign)
-        if i % 50 == 0:
-            print(f"Accuracy so far: {sum(temp_instances)/len(temp_instances)}")
+        if i % 50 == 0 or i == 143:
+            print(f"Accuracy so far for {len(temp_instances)} samples: {sum(temp_instances)/len(temp_instances)}")
     # Save results
     return temp_instances,data
        
@@ -157,15 +157,12 @@ if __name__ == "__main__":
             else:
                 
                 # model = AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
-                base_model = AutoModelForSequenceClassification.from_pretrained(args.tokenizer_path, num_labels = 1, torch_dtype=torch.float16, device_map={'': torch.cuda.current_device()})
-                base_model.config.use_cache = False
-                base_model.config.pad_token_id = tokenizer.pad_token_id
-                base_model.resize_token_embeddings(len(tokenizer))
+                model = AutoModelForSequenceClassification.from_pretrained(args.model_path, num_labels = 1, torch_dtype=torch.float16, device_map={'': torch.cuda.current_device()})
+                # model.config.use_cache = False
+                # model.config.pad_token_id = tokenizer.pad_token_id
+                model.resize_token_embeddings(len(tokenizer))
 
-                # Load the model with ignore_mismatched_sizes=True
-                model = PeftModel.from_pretrained(base_model, args.model_path,
-                                                #   ignore_mismatched_sizes=True
-                                                )
+               
                 
             
             downloaded = True

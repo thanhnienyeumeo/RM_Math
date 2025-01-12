@@ -205,7 +205,7 @@ training_args = TrainingArguments(
     logging_steps=100,
     optim=script_args.optim,
     lr_scheduler_type=script_args.lr_scheduler_type,
-    warmup_ratio=0.03,
+    warmup_ratio=0.01,
     report_to= script_args.report_to,
     save_only_model = True,
     push_to_hub=True,
@@ -327,3 +327,4 @@ print("Saving last checkpoint of the model")
 #model.save_pretrained(output_name + "/last_checkpoint")
 trainer.save_model(output_name + "/last_checkpoint")
 tokenizer.save_pretrained(output_name + "/last_checkpoint")
+
