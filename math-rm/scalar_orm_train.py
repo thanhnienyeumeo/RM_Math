@@ -138,7 +138,7 @@ def build_dataset(tokenizer, train_path, eval_path = None):
         sample['positive'] = tokenizer.apply_chat_template(
             # message, tokenize=False, add_generation_prompt=False).replace(tokenizer.bos_token, "")
             message, tokenize=False, add_generation_prompt=False)
-        tokenized_pos = tokenizer(sample['positive'], truncation=True)
+        tokenized_pos = tokenizer(sample['positive'], truncation=False)
         sample["input_ids_j"] = tokenized_pos["input_ids"]
         sample["attention_mask_j"] = tokenized_pos["attention_mask"]
         if sample['conversations'][1]['content'] == '+':

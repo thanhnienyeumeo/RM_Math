@@ -1,8 +1,8 @@
 from huggingface_hub import HfApi, HfFolder, Repository
 # from credential import HUGGINGFACE_TOKEN
 # Define your repository details
-repo_name = "Colder203/gemma2b_orm"
-checkpoint_path = "gemma2b_orm/checkpoint-67964"
+repo_name = "Colder203/phi"
+checkpoint_path = "model/phi/checkpoint-33984"
 # token = HUGGINGFACE_TOKEN
 
 # Initialize the API and repository

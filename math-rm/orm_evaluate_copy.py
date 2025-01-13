@@ -85,7 +85,10 @@ def select_sample2(args,sample,model,tokenizer,candidate_tokens,local_rank):
             ]
         
         senten =tokenizer.apply_chat_template(
-                message, tokenize=False, add_generation_prompt=False).replace(tokenizer.bos_token, "")
+                message, tokenize=False, add_generation_prompt=False)
+        # print(senten)
+        if tokenizer.bos_token is not None:
+            senten = senten.replace(tokenizer.bos_token, "")
                 # message, add_generation_prompt=False)
         input_ids = tokenizer(senten, truncation=False, return_tensors="pt").to(local_rank)
 
@@ -148,6 +151,7 @@ if __name__ == "__main__":
             tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
             tokenizer.add_special_tokens({'pad_token': '[PAD]'})
             if args.peft:
+                print(1)
                 base_model = AutoModelForSequenceClassification.from_pretrained(args.tokenizer_path, num_labels = 1, torch_dtype=torch.float16, device_map={'': torch.cuda.current_device()})
                 # base_model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-3.5-mini-instruct", torch_dtype=torch.bfloat16, device_map = torch.cuda.current_device()).to(local_rank).eval()
                 base_model.config.pad_token_id = tokenizer.pad_token_id
@@ -155,7 +159,7 @@ if __name__ == "__main__":
                 base_model.resize_token_embeddings(len(tokenizer))
                 model = PeftModel.from_pretrained(base_model, args.model_path)
             else:
-                
+                print(0)
                 # model = AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16).to(local_rank).eval()
                 model = AutoModelForSequenceClassification.from_pretrained(args.model_path, num_labels = 1, torch_dtype=torch.float16, device_map={'': torch.cuda.current_device()})
                 # model.config.use_cache = False
